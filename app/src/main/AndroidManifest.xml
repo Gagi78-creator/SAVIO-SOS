@@ -1,0 +1,64 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Postojeće dozvole -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
+    <uses-permission android:name="android.permission.SEND_SMS"/>
+    <uses-permission android:name="android.permission.READ_SMS"/>
+    <uses-permission android:name="android.permission.CALL_PHONE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_LOCATION"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.WAKE_LOCK"/>
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT"/>
+    <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS"/>
+
+    <!-- NOVO: Boot dozvola -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+
+    <application
+        android:allowBackup="true"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:label="SAVIO SOS"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Savio4">
+
+        <!-- Postojeće aktivnosti -->
+        <activity android:name=".ProfileActivity" android:exported="false"/>
+        <activity android:name=".MainActivity" android:exported="false"/>
+        <activity android:name=".WelcomeActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+        </activity>
+        <activity
+            android:name=".WarningActivity"
+            android:exported="false"
+            android:showWhenLocked="true"
+            android:turnScreenOn="true"
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="adjustResize"/>
+        <activity android:name=".RescueActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
+        <activity android:name=".SettingsActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
+        <activity android:name=".ReadinessActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
+        <activity android:name=".RescueLoginActivity" android:exported="false" android:windowSoftInputMode="adjustResize"/>
+
+        <!-- Postojeći servisi -->
+        <service android:name=".AlarmService" android:exported="false" android:foregroundServiceType="mediaPlayback"/>
+        <service android:name=".LocationMonitorService" android:exported="false" android:foregroundServiceType="location"/>
+
+        <!-- NOVO: Boot Receiver -->
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+            </intent-filter>
+        </receiver>
+
+    </application>
+
+</manifest>

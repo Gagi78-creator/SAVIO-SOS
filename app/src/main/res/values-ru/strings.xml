@@ -1,0 +1,40 @@
+<resources>
+    <string name="app_name">SAVIO SOS</string>
+    <string name="language_title">Выберите язык</string>
+    <string name="continue_button">ПРОДОЛЖИТЬ</string>
+
+    <string name="profile_title">Профиль пользователя</string>
+    <string name="full_name">Имя и фамилия</string>
+    <string name="age">Возраст</string>
+    <string name="phone">Номер телефона</string>
+    <string name="blood_type">Группа крови</string>
+    <string name="chronic_diseases">Хронические заболевания / терапия</string>
+    <string name="save_profile">СОХРАНИТЬ ПРОФИЛЬ</string>
+
+    <string name="subtitle_services">ПОЛИЦИЯ • ПОЖАРНЫЕ-СПАСАТЕЛИ • ГОРНАЯ СПАСАТЕЛЬНАЯ СЛУЖБА</string>
+    <string name="edit_profile">РЕДАКТИРОВАТЬ ПРОФИЛЬ</string>
+    <string name="deactivate_sos">ОТКЛЮЧИТЬ SOS</string>
+    <string name="go_to_person">ПЕРЕЙТИ К ЧЕЛОВЕКУ</string>
+    <string name="survival_tips">СОВЕТЫ ПО ВЫЖИВАНИЮ</string>
+
+    <string name="system_ready">Система готова.</string>
+    <string name="sos_already_active">SOS уже активен. Чтобы остановить его, используйте кнопку ОТКЛЮЧИТЬ SOS.</string>
+    <string name="sos_not_active">Режим SOS сейчас не активен.</string>
+
+    <string name="sos_center">SOS\nЦЕНТР\nПОМОЩИ</string>
+    <string name="sos_active_title">SOS АКТИВЕН</string>
+    <string name="priority_label">Приоритет</string>
+    <string name="condition_label">Состояние</string>
+    <string name="location_monitor_active">Мониторинг местоположения активен.</string>
+    <string name="do_not_move_warning">Не меняйте местоположение, если вашей жизни ничего не угрожает.</string>
+    <string name="missing_permissions">Отсутствуют разрешения GPS, SMS или звонков.</string>
+    <string name="missing_sms_gps_permissions">Отсутствуют разрешения SMS или GPS.</string>
+    <string name="sos_sent_no_location">SOS-сообщения отправлены, но начальная GPS-координата недоступна для контроля перемещения.</string>
+
+    <string name="tactical_advice">ТАКТИЧЕСКИЙ СОВЕТ ДЛЯ МЕСТНОСТИ
+
+После отправки сигнала SOS не покидайте место отправки.
+Оставайтесь в точке, с которой был отправлен сигнал SOS, чтобы спасательные группы могли быстрее и легче вас найти.
+
+Меняйте местоположение только при непосредственной угрозе жизни.</string>
+</resources>

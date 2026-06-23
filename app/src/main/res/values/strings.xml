@@ -1,0 +1,39 @@
+<resources>
+    <string name="app_name">SAVIO SOS</string>
+    <string name="language_title">Izaberite jezik</string>
+    <string name="continue_button">NASTAVI</string>
+
+    <string name="profile_title">Profil korisnika</string>
+    <string name="full_name">Ime i prezime</string>
+    <string name="age">Godine starosti</string>
+    <string name="phone">Broj telefona</string>
+    <string name="blood_type">Krvna grupa</string>
+    <string name="chronic_diseases">Hronične bolesti / terapija</string>
+    <string name="save_profile">SAČUVAJ PROFIL</string>
+
+    <string name="subtitle_services">POLICIJA  •  VATROGASCI-SPASIOCI  •  GORSKA SLUŽBA SPASAVANJA</string>
+    <string name="edit_profile">IZMENI PROFIL</string>
+    <string name="deactivate_sos">DEAKTIVIRAJ SOS</string>
+    <string name="go_to_person">KRENI KA OSOBI</string>
+    <string name="survival_tips">SAVETI ZA PREŽIVLJAVANJE</string>
+    <string name="system_ready">Sistem spreman.</string>
+    <string name="sos_already_active">SOS je već aktivan. Ako želite da ga zaustavite, koristite dugme DEAKTIVIRAJ SOS.</string>
+    <string name="sos_not_active">SOS režim trenutno nije aktivan.</string>
+
+    <string name="sos_center">SOS\nCENTAR ZA\nUGROŽENE</string>
+    <string name="sos_active_title">SOS JE AKTIVAN</string>
+    <string name="priority_label">Prioritet</string>
+    <string name="condition_label">Stanje</string>
+    <string name="location_monitor_active">Nadzor lokacije je uključen.</string>
+    <string name="do_not_move_warning">Ne menjajte lokaciju osim ako ste životno ugroženi.</string>
+    <string name="missing_permissions">Nedostaju dozvole za GPS, SMS ili poziv.</string>
+    <string name="missing_sms_gps_permissions">Nedostaju dozvole za SMS ili GPS.</string>
+    <string name="sos_sent_no_location">SOS poruke su poslate, ali početna GPS lokacija nije dostupna za nadzor kretanja.</string>
+
+    <string name="tactical_advice">TAKTIČKI SAVET ZA TEREN
+
+Nakon upućivanja SOS signala ne napuštajte mesto slanja.
+Ostanite pozicionirani na tački sa koje je poslat SOS signal kako bi vas spasilački timovi lakše i brže pronašli.
+
+Lokaciju menjajte samo ako postoji neposredna opasnost po život.</string>
+</resources>

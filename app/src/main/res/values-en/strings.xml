@@ -1,0 +1,40 @@
+<resources>
+    <string name="app_name">SAVIO SOS</string>
+    <string name="language_title">Choose language</string>
+    <string name="continue_button">CONTINUE</string>
+
+    <string name="profile_title">User profile</string>
+    <string name="full_name">Full name</string>
+    <string name="age">Age</string>
+    <string name="phone">Phone number</string>
+    <string name="blood_type">Blood type</string>
+    <string name="chronic_diseases">Chronic diseases / therapy</string>
+    <string name="save_profile">SAVE PROFILE</string>
+
+    <string name="subtitle_services">POLICE • FIREFIGHTERS-RESCUERS • MOUNTAIN RESCUE SERVICE</string>
+    <string name="edit_profile">EDIT PROFILE</string>
+    <string name="deactivate_sos">DEACTIVATE SOS</string>
+    <string name="go_to_person">GO TO PERSON</string>
+    <string name="survival_tips">SURVIVAL TIPS</string>
+
+    <string name="system_ready">System ready.</string>
+    <string name="sos_already_active">SOS is already active. To stop it, use the DEACTIVATE SOS button.</string>
+    <string name="sos_not_active">SOS mode is currently not active.</string>
+
+    <string name="sos_center">SOS\nCENTER FOR\nENDANGERED</string>
+    <string name="sos_active_title">SOS ACTIVE</string>
+    <string name="priority_label">Priority</string>
+    <string name="condition_label">Condition</string>
+    <string name="location_monitor_active">Location monitoring is active.</string>
+    <string name="do_not_move_warning">Do not change location unless your life is in danger.</string>
+    <string name="missing_permissions">Missing GPS, SMS or call permissions.</string>
+    <string name="missing_sms_gps_permissions">Missing SMS or GPS permissions.</string>
+    <string name="sos_sent_no_location">SOS messages were sent, but the initial GPS location is unavailable for movement monitoring.</string>
+
+    <string name="tactical_advice">TACTICAL FIELD ADVICE
+
+After sending an SOS signal, do not leave the location.
+Stay at the point from which the SOS signal was sent so rescue teams can find you faster and more easily.
+
+Change your location only if there is an immediate threat to life.</string>
+</resources>

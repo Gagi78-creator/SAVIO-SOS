@@ -1,0 +1,40 @@
+<resources>
+    <string name="app_name">SAVIO SOS</string>
+    <string name="language_title">Sprache auswählen</string>
+    <string name="continue_button">FORTFAHREN</string>
+
+    <string name="profile_title">Benutzerprofil</string>
+    <string name="full_name">Vor- und Nachname</string>
+    <string name="age">Alter</string>
+    <string name="phone">Telefonnummer</string>
+    <string name="blood_type">Blutgruppe</string>
+    <string name="chronic_diseases">Chronische Krankheiten / Therapie</string>
+    <string name="save_profile">PROFIL SPEICHERN</string>
+
+    <string name="subtitle_services">POLIZEI • FEUERWEHR-RETTUNGSKRÄFTE • BERGRETTUNGSDIENST</string>
+    <string name="edit_profile">PROFIL BEARBEITEN</string>
+    <string name="deactivate_sos">SOS DEAKTIVIEREN</string>
+    <string name="go_to_person">ZUR PERSON</string>
+    <string name="survival_tips">ÜBERLEBENSTIPPS</string>
+
+    <string name="system_ready">System bereit.</string>
+    <string name="sos_already_active">SOS ist bereits aktiv. Zum Stoppen verwenden Sie die Taste SOS DEAKTIVIEREN.</string>
+    <string name="sos_not_active">Der SOS-Modus ist derzeit nicht aktiv.</string>
+
+    <string name="sos_center">SOS\nNOTFALL-\nZENTRUM</string>
+    <string name="sos_active_title">SOS AKTIV</string>
+    <string name="priority_label">Priorität</string>
+    <string name="condition_label">Zustand</string>
+    <string name="location_monitor_active">Standortüberwachung ist aktiv.</string>
+    <string name="do_not_move_warning">Ändern Sie Ihren Standort nicht, es sei denn, Ihr Leben ist in Gefahr.</string>
+    <string name="missing_permissions">GPS-, SMS- oder Anrufberechtigungen fehlen.</string>
+    <string name="missing_sms_gps_permissions">SMS- oder GPS-Berechtigungen fehlen.</string>
+    <string name="sos_sent_no_location">SOS-Nachrichten wurden gesendet, aber die ursprüngliche GPS-Position ist für die Bewegungsüberwachung nicht verfügbar.</string>
+
+    <string name="tactical_advice">TAKTISCHER HINWEIS FÜR DEN EINSATZ
+
+Verlassen Sie nach dem Senden eines SOS-Signals nicht den Standort.
+Bleiben Sie an dem Punkt, von dem das SOS-Signal gesendet wurde, damit Rettungsteams Sie schneller und leichter finden können.
+
+Ändern Sie Ihren Standort nur bei unmittelbarer Lebensgefahr.</string>
+</resources>
