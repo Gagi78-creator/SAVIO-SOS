@@ -30,6 +30,7 @@ import org.osmdroid.views.overlay.Marker
 import org.osmdroid.views.overlay.Polygon
 import org.osmdroid.views.overlay.Polyline
 import java.text.SimpleDateFormat
+import kotlin.math.pow
 import java.util.Date
 import java.util.Locale
 
@@ -79,6 +80,14 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
     private val foundMarkers = mutableMapOf<String, Marker>()
     private val foundConfirmations = mutableMapOf<String, MutableSet<String>>()
     private val rescuerPhones = mutableListOf<String>()
+
+    // Linija i udaljenost do nestalnog lica
+    private val victimLines = mutableMapOf<String, Polyline>()
+    private var lastVictimLat = 0.0
+    private var lastVictimLon = 0.0
+
+    // Markeri civila
+    private val civilMarkers = mutableMapOf<String, Marker>()
 
     // Boje sektora
     private val sectorColors = listOf(
@@ -142,10 +151,10 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
 
         val legendText = TextView(this)
         legendText.text = t(
-            "🔵 Spasioci   🔴 Nestalo lice   ⭐ Vi  —  kliknite marker za detalje",
-            "🔵 Rescuers   🔴 Missing   ⭐ You  —  tap marker for details",
-            "🔵 Спасатели   🔴 Пострадавший   ⭐ Вы",
-            "🔵 Retter   🔴 Vermisste   ⭐ Sie"
+            "🔵 Spasioci   🟡 Civili   🔴 Nestalo lice   ⭐ Vi  —  kliknite marker",
+            "🔵 Rescuers   🟡 Civilians   🔴 Missing   ⭐ You  —  tap marker",
+            "🔵 Спасатели   🟡 Гражданские   🔴 Пострадавший   ⭐ Вы",
+            "🔵 Retter   🟡 Zivilisten   🔴 Vermisste   ⭐ Sie"
         )
         legendText.textSize = 11f
         legendText.setTextColor(Color.rgb(150, 150, 150))
@@ -155,6 +164,18 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
         header.addView(missionInfo)
         header.addView(statusText)
         header.addView(legendText)
+
+        // Dugme za ručni unos koordinata nestalnog lica
+        val btnManualCoords = Button(this)
+        btnManualCoords.text = "📍 " + t("UNESI LOKACIJU NESTALNOG LICA", "ENTER MISSING PERSON LOCATION", "ВВЕСТИ МЕСТОПОЛОЖЕНИЕ", "STANDORT EINGEBEN")
+        btnManualCoords.setTextColor(Color.WHITE)
+        btnManualCoords.setBackgroundColor(Color.rgb(140, 0, 0))
+        btnManualCoords.textSize = 12f
+        val manualBtnParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+        manualBtnParams.setMargins(0, 4, 0, 0)
+        btnManualCoords.layoutParams = manualBtnParams
+        btnManualCoords.setOnClickListener { showManualCoordinateDialog() }
+        header.addView(btnManualCoords)
 
         // ─── SEKTOR INFO (vidljiv kad je spasilac u sektoru) ───
         sectorDrawingInfo = TextView(this)
@@ -337,6 +358,8 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
         startListeningRescuerSos()
         startListeningSectors()
         loadMySector()
+        startListeningCivilians()
+        loadSosLocation() // Automatski učitaj SOS koordinate
     }
 
     // ─────────────────────────────────────────────
@@ -730,6 +753,210 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
             .show()
     }
 
+    // ─────────────────────────────────────────────
+    // SOS LOKACIJA — automatsko i ručno učitavanje
+    // ─────────────────────────────────────────────
+
+    private fun loadSosLocation() {
+        db.getReference("missions").child(missionCode).get().addOnSuccessListener { snapshot ->
+            val sosLat = snapshot.child("sosLat").getValue(Double::class.java) ?: 0.0
+            val sosLon = snapshot.child("sosLon").getValue(Double::class.java) ?: 0.0
+            val sosPersonName = snapshot.child("sosPersonName").getValue(String::class.java)
+                ?: t("Nestalo lice", "Missing person", "Пострадавший", "Vermisste Person")
+
+            if (sosLat != 0.0 && sosLon != 0.0) {
+                val findId = "sos_mission_$missionCode"
+                val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+                runOnUiThread {
+                    addMissingPersonMarker(findId, sosLat, sosLon, "🔴 $sosPersonName", sosPersonName, time)
+                    statusText.text = t(
+                        "SOS lokacija učitana — $sosPersonName",
+                        "SOS location loaded — $sosPersonName",
+                        "SOS-локация загружena — $sosPersonName",
+                        "SOS-Standort geladen — $sosPersonName"
+                    )
+                    statusText.setTextColor(Color.rgb(255, 80, 80))
+                }
+            }
+
+            // Uvek slušaj real-time ažuriranja lokacije ugroženog lica
+            db.getReference("sos_locations").addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    snapshot.children.forEach { sosEntry ->
+                        val active = sosEntry.child("active").getValue(Boolean::class.java) ?: false
+                        if (!active) return@forEach
+                        val lat = sosEntry.child("lat").getValue(Double::class.java) ?: 0.0
+                        val lon = sosEntry.child("lon").getValue(Double::class.java) ?: 0.0
+                        val name = sosEntry.child("name").getValue(String::class.java)
+                            ?: t("Nestalo lice", "Missing person", "Пострадавший", "Vermisste Person")
+                        val updateTime = sosEntry.child("lastUpdateTime").getValue(String::class.java)
+                            ?: sosEntry.child("time").getValue(String::class.java) ?: ""
+                        if (lat != 0.0 && lon != 0.0) {
+                            val findId = "sos_${sosEntry.key}"
+                            runOnUiThread { updateMissingPersonMarker(findId, lat, lon, "🔴 $name", name, updateTime) }
+                        }
+                    }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+        }
+    }
+
+    private fun updateMissingPersonMarker(findId: String, lat: Double, lon: Double, status: String, rescuer: String, time: String) {
+        val existing = foundMarkers[findId]
+        if (existing != null) {
+            existing.position = GeoPoint(lat, lon)
+            lastVictimLat = lat
+            lastVictimLon = lon
+            foundMarkers.keys.forEach { updateVictimLine(it, lat, lon) }
+            mapView.invalidate()
+        } else {
+            addMissingPersonMarker(findId, lat, lon, status, rescuer, time)
+        }
+    }
+
+    private fun showManualCoordinateDialog() {
+        val input = EditText(this)
+        input.hint = t(
+            "Unesite koordinate ili Google Maps link\nnpr. 43.9081, 22.2874",
+            "Enter coordinates or Google Maps link\ne.g. 43.9081, 22.2874",
+            "Введите координаты или ссылку Google Maps\nнапр. 43.9081, 22.2874",
+            "Koordinaten oder Google Maps Link eingeben\nz.B. 43.9081, 22.2874"
+        )
+        input.minLines = 3
+        input.setTextColor(Color.WHITE)
+        input.setHintTextColor(Color.rgb(120, 120, 120))
+        input.setPadding(16, 16, 16, 16)
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("📍 " + t("UNESI LOKACIJU NESTALNOG LICA", "ENTER MISSING PERSON LOCATION", "МЕСТОПОЛОЖЕНИЕ ПОСТРАДАВШЕГО", "STANDORT EINGEBEN"))
+            .setView(input)
+            .setPositiveButton(t("POSTAVI NA MAPU", "SET ON MAP", "ПОСТАВИТЬ НА КАРТУ", "AUF KARTE SETZEN")) { _, _ ->
+                val text = input.text.toString()
+                val coords = extractCoordinates(text)
+                if (coords != null) {
+                    val findId = "manual_${System.currentTimeMillis()}"
+                    addMissingPersonMarker(findId, coords.first, coords.second,
+                        t("Ručno uneto", "Manually entered", "Введено вручную", "Manuell eingegeben"),
+                        rescuerName,
+                        SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date())
+                    )
+                    Toast.makeText(this, t("Lokacija postavljena na mapu!", "Location set on map!", "Местоположение установлено!", "Standort gesetzt!"), Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, t("Nisam pronašao koordinate.", "Could not find coordinates.", "Координаты не найдены.", "Koordinaten nicht gefunden."), Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton(t("ODUSTANI", "CANCEL", "ОТМЕНА", "ABBRECHEN"), null)
+            .show()
+    }
+
+    private fun extractCoordinates(text: String): Pair<Double, Double>? {
+        val regex = Regex("""(-?\d{1,3}\.\d+)\s*,\s*(-?\d{1,3}\.\d+)""")
+        val match = regex.find(text) ?: return null
+        val lat = match.groupValues[1].toDoubleOrNull() ?: return null
+        val lon = match.groupValues[2].toDoubleOrNull() ?: return null
+        if (lat !in -90.0..90.0 || lon !in -180.0..180.0) return null
+        return Pair(lat, lon)
+    }
+
+    private fun startListeningCivilians() {
+        db.getReference("civil_rescuers").child(missionCode)
+            .addValueEventListener(object : ValueEventListener {
+                override fun onDataChange(snapshot: DataSnapshot) {
+                    // Ukloni stare markere civila
+                    civilMarkers.values.forEach { mapView.overlays.remove(it) }
+                    civilMarkers.clear()
+
+                    snapshot.children.forEach { civilSnapshot ->
+                        val name = civilSnapshot.child("name").getValue(String::class.java) ?: return@forEach
+                        val lat = civilSnapshot.child("lat").getValue(Double::class.java) ?: 0.0
+                        val lon = civilSnapshot.child("lon").getValue(Double::class.java) ?: 0.0
+                        val phone = civilSnapshot.child("phone").getValue(String::class.java) ?: ""
+                        val lastUpdateTime = civilSnapshot.child("lastUpdateTime").getValue(String::class.java) ?: "--:--"
+
+                        if (lat != 0.0 && lon != 0.0) {
+                            runOnUiThread { addCivilMarker(name, lat, lon, phone, lastUpdateTime) }
+                        }
+                    }
+                    runOnUiThread { mapView.invalidate() }
+                }
+                override fun onCancelled(error: DatabaseError) {}
+            })
+    }
+
+    private fun addCivilMarker(name: String, lat: Double, lon: Double, phone: String, lastUpdateTime: String) {
+        val position = GeoPoint(lat, lon)
+        val existing = civilMarkers[name]
+        if (existing != null) {
+            existing.position = position
+            mapView.invalidate()
+            return
+        }
+
+        val marker = Marker(mapView)
+        marker.position = position
+        marker.title = "🟡 $name"
+        marker.icon = makeCivilBitmap(name)
+        marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_CENTER)
+        marker.setOnMarkerClickListener { _, _ ->
+            showCivilInfo(name, lat, lon, phone, lastUpdateTime)
+            true
+        }
+        mapView.overlays.add(marker)
+        civilMarkers[name] = marker
+        mapView.invalidate()
+    }
+
+    private fun makeCivilBitmap(name: String): BitmapDrawable {
+        val size = 80
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+        val canvas = Canvas(bitmap)
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+
+        paint.color = Color.rgb(220, 180, 0)
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4, paint)
+
+        paint.color = Color.WHITE
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = 4f
+        canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4, paint)
+
+        paint.style = Paint.Style.FILL
+        paint.color = Color.WHITE
+        paint.textSize = 30f
+        paint.textAlign = Paint.Align.CENTER
+        val initial = name.firstOrNull()?.uppercaseChar()?.toString() ?: "C"
+        canvas.drawText(initial, size / 2f, size / 2f + 10f, paint)
+
+        return BitmapDrawable(resources, bitmap)
+    }
+
+    private fun showCivilInfo(name: String, lat: Double, lon: Double, phone: String, lastUpdateTime: String) {
+        val phoneDisplay = if (phone.isNotEmpty()) phone
+        else t("Broj nije dostupan", "Number not available", "Номер недоступен", "Nummer nicht verfügbar")
+
+        val builder = AlertDialog.Builder(this)
+            .setTitle("🟡 $name " + t("(Civil)", "(Civilian)", "(Гражданский)", "(Zivilist)"))
+            .setMessage(t(
+                "Koordinate:\n${"%.5f".format(lat)}, ${"%.5f".format(lon)}\n\nAžurirano: $lastUpdateTime\n\nTelefon: $phoneDisplay",
+                "Coordinates:\n${"%.5f".format(lat)}, ${"%.5f".format(lon)}\n\nUpdated: $lastUpdateTime\n\nPhone: $phoneDisplay",
+                "Координаты:\n${"%.5f".format(lat)}, ${"%.5f".format(lon)}\n\nОбновлено: $lastUpdateTime\n\nТелефон: $phoneDisplay",
+                "Koordinaten:\n${"%.5f".format(lat)}, ${"%.5f".format(lon)}\n\nAktualisiert: $lastUpdateTime\n\nTelefon: $phoneDisplay"
+            ))
+            .setPositiveButton(t("ZATVORI", "CLOSE", "ЗАКРЫТЬ", "SCHLIESSEN"), null)
+
+        if (phone.isNotEmpty()) {
+            builder.setNeutralButton("📞 " + t("POZOVI", "CALL", "ПОЗВОНИТЬ", "ANRUFEN")) { _, _ ->
+                try {
+                    val intent = Intent(Intent.ACTION_DIAL)
+                    intent.data = android.net.Uri.parse("tel:$phone")
+                    startActivity(intent)
+                } catch (_: Exception) {}
+            }
+        }
+        builder.show()
+    }
+
     // Point-in-polygon algoritam (Ray casting)
     private fun isPointInPolygon(point: GeoPoint, polygon: List<GeoPoint>): Boolean {
         var inside = false
@@ -804,9 +1031,17 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
         messageInput.textSize = 14f
         messageInput.setBackgroundColor(Color.rgb(25, 30, 45))
         messageInput.setPadding(16, 12, 16, 12)
+        messageInput.maxLines = 3
         val inputParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
         inputParams.setMargins(0, 0, 8, 0)
         messageInput.layoutParams = inputParams
+
+        // Auto-scroll kada se tastatura pojavi
+        messageInput.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                handler.postDelayed({ chatScrollView.fullScroll(View.FOCUS_DOWN) }, 300)
+            }
+        }
 
         val btnSend = Button(this)
         btnSend.text = "▶"
@@ -920,7 +1155,33 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
 
         messageLayout.addView(bubble)
         chatMessagesContainer.addView(messageLayout)
-        handler.postDelayed({ chatScrollView.fullScroll(View.FOCUS_DOWN) }, 100)
+
+        // Auto-scroll na dno
+        chatMessagesContainer.post {
+            chatScrollView.fullScroll(View.FOCUS_DOWN)
+        }
+
+        // Obaveštenje ako je chat zatvoren i nije moja poruka
+        if (!chatVisible && !isMe) {
+            showChatNotification(sender, text)
+        }
+    }
+
+    private fun showChatNotification(sender: String, text: String) {
+        // Vibracija kratka
+        try {
+            val vibrator = getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                vibrator.vibrate(android.os.VibrationEffect.createOneShot(200, android.os.VibrationEffect.DEFAULT_AMPLITUDE))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(200)
+            }
+        } catch (_: Exception) {}
+
+        // Toast obaveštenje
+        val shortText = if (text.length > 40) text.substring(0, 40) + "..." else text
+        Toast.makeText(this, "💬 $sender: $shortText", Toast.LENGTH_LONG).show()
     }
 
     // ─────────────────────────────────────────────
@@ -934,10 +1195,10 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
 
         paint.color = when {
-            isMe -> Color.rgb(255, 200, 0)
-            signalStatus == 2 -> Color.rgb(100, 100, 100)
-            signalStatus == 1 -> Color.rgb(200, 130, 0)
-            else -> Color.rgb(30, 120, 220)
+            isMe && isCoordinator -> Color.rgb(255, 200, 0)  // Zlatna — samo koordinator
+            signalStatus == 2 -> Color.rgb(100, 100, 100)    // Siva — signal izgubljen
+            signalStatus == 1 -> Color.rgb(200, 130, 0)      // Narandžasta — slab signal
+            else -> Color.rgb(30, 120, 220)                   // Plava — svi spasioci
         }
         canvas.drawCircle(size / 2f, size / 2f, size / 2f - 4, paint)
 
@@ -1040,11 +1301,16 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
         if (lat == 0.0 && lon == 0.0) return
         val position = GeoPoint(lat, lon)
 
+        // Zapamti poslednju poznatu lokaciju nestalnog lica
+        lastVictimLat = lat
+        lastVictimLon = lon
+
         runOnUiThread {
             val existing = foundMarkers[findId]
             if (existing != null) {
                 existing.title = "🔴 $status"
                 mapView.invalidate()
+                updateVictimLine(findId, lat, lon)
                 return@runOnUiThread
             }
 
@@ -1062,7 +1328,47 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
             mapView.controller.animateTo(position)
             mapView.controller.setZoom(15.0)
             mapView.invalidate()
+
+            // Nacrtaj liniju od moje lokacije do nestalnog lica
+            updateVictimLine(findId, lat, lon)
         }
+    }
+
+    private fun updateVictimLine(findId: String, victimLat: Double, victimLon: Double) {
+        val myLat = lastLocation?.latitude ?: return
+        val myLon = lastLocation?.longitude ?: return
+
+        // Ukloni staru liniju
+        victimLines[findId]?.let { mapView.overlays.remove(it) }
+
+        val line = Polyline()
+        line.setPoints(listOf(GeoPoint(myLat, myLon), GeoPoint(victimLat, victimLon)))
+        line.color = Color.argb(180, 255, 80, 0)
+        line.width = 4f
+        mapView.overlays.add(0, line)
+        victimLines[findId] = line
+
+        // Ažuriraj udaljenost u status baru
+        val distance = calculateDistanceToVictim(myLat, myLon, victimLat, victimLon)
+        val distanceStr = if (distance >= 1000) "${"%.1f".format(distance / 1000)} km" else "${distance.toInt()} m"
+        runOnUiThread {
+            statusText.text = t(
+                "GPS aktivan — udaljenost od nestalnog lica: $distanceStr",
+                "GPS active — distance to missing person: $distanceStr",
+                "GPS активен — расстояние до пострадавшего: $distanceStr",
+                "GPS aktiv — Entfernung zur vermissten Person: $distanceStr"
+            )
+            statusText.setTextColor(Color.rgb(255, 140, 0))
+        }
+        mapView.invalidate()
+    }
+
+    private fun calculateDistanceToVictim(lat1: Double, lon1: Double, lat2: Double, lon2: Double): Double {
+        val r = 6371000.0
+        val dLat = Math.toRadians(lat2 - lat1)
+        val dLon = Math.toRadians(lon2 - lon1)
+        val a = Math.sin(dLat / 2).pow(2) + Math.cos(Math.toRadians(lat1)) * Math.cos(Math.toRadians(lat2)) * Math.sin(dLon / 2).pow(2)
+        return r * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
     }
 
     private fun showRescuerInfo(name: String, lat: Double, lon: Double, lastUpdate: String, phone: String, battery: Int, signalStatus: Int, isMe: Boolean) {
@@ -1140,6 +1446,13 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
         statusText.setTextColor(Color.rgb(0, 200, 100))
         updateLocationOnFirebase(location)
         checkSectorBoundary(location)
+
+        // Osvježi linije ka nestalnim licima
+        if (lastVictimLat != 0.0 && lastVictimLon != 0.0) {
+            foundMarkers.keys.forEach { findId ->
+                updateVictimLine(findId, lastVictimLat, lastVictimLon)
+            }
+        }
     }
 
     private fun getBatteryPercent(): Int {
@@ -1242,7 +1555,7 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
 
         val dot = TextView(this)
         dot.text = when {
-            isMe -> "⭐"; signalStatus == 2 -> "⚫"; signalStatus == 1 -> "🟠"; else -> "🔵"
+            isMe && isCoordinator -> "⭐"; signalStatus == 2 -> "⚫"; signalStatus == 1 -> "🟠"; else -> "🔵"
         }
         dot.textSize = 16f
         dot.setPadding(0, 0, 10, 0)

@@ -2,7 +2,9 @@ package com.example.savio4
 
 import android.content.Intent
 import android.graphics.Color
+import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
@@ -29,18 +31,47 @@ class SettingsActivity : AppCompatActivity() {
         title.setTextColor(Color.WHITE)
 
         val btnReadiness = Button(this)
-        btnReadiness.text = t(
-            "✅ PROVERA SPREMNOSTI",
-            "✅ READINESS CHECK",
-            "✅ ПРОВЕРКА ГОТОВНОСТИ",
-            "✅ BEREITSCHAFTSPRÜFUNG"
-        )
+        btnReadiness.text = t("✅ PROVERA SPREMNOSTI", "✅ READINESS CHECK", "✅ ПРОВЕРКА ГОТОВНОСТИ", "✅ BEREITSCHAFTSPRÜFUNG")
         btnReadiness.textSize = 18f
         btnReadiness.setTextColor(Color.WHITE)
         btnReadiness.setBackgroundColor(Color.rgb(0, 120, 200))
+        btnReadiness.setOnClickListener { startActivity(Intent(this, ReadinessActivity::class.java)) }
 
-        btnReadiness.setOnClickListener {
-            startActivity(Intent(this, ReadinessActivity::class.java))
+        // ─── DUGME ZA OBAVEŠTENJA ───
+        val btnNotifications = Button(this)
+        btnNotifications.text = t(
+            "🔔 PODEŠAVANJA OBAVEŠTENJA",
+            "🔔 NOTIFICATION SETTINGS",
+            "🔔 НАСТРОЙКИ УВЕДОМЛЕНИЙ",
+            "🔔 BENACHRICHTIGUNGSEINSTELLUNGEN"
+        )
+        btnNotifications.textSize = 18f
+        btnNotifications.setTextColor(Color.WHITE)
+        btnNotifications.setBackgroundColor(Color.rgb(150, 80, 0))
+
+        val notifNote = TextView(this)
+        notifNote.text = t(
+            "ℹ️ Postavite obaveštenja na 'Iskačući prozor sa detaljima' da ne propustite SOS alarm.",
+            "ℹ️ Set notifications to 'Pop-up with details' to never miss a SOS alert.",
+            "ℹ️ Установите уведомления на 'Всплывающее окно с деталями'.",
+            "ℹ️ Benachrichtigungen auf 'Popup mit Details' setzen."
+        )
+        notifNote.textSize = 13f
+        notifNote.setTextColor(Color.rgb(180, 140, 0))
+        notifNote.setPadding(0, 4, 0, 16)
+
+        btnNotifications.setOnClickListener {
+            try {
+                val intent = Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                intent.putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                startActivity(intent)
+            } catch (e: Exception) {
+                try {
+                    val intent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                    intent.data = Uri.parse("package:$packageName")
+                    startActivity(intent)
+                } catch (_: Exception) {}
+            }
         }
 
         val languageLabel = TextView(this)
@@ -92,35 +123,18 @@ class SettingsActivity : AppCompatActivity() {
         btnSaveLanguage.text = t("SAČUVAJ JEZIK", "SAVE LANGUAGE", "СОХРАНИТЬ ЯЗЫК", "SPRACHE SPEICHERN")
 
         btnSaveLanguage.setOnClickListener {
-            prefs.edit()
-                .putString("language", selectedLanguage)
-                .apply()
-
+            prefs.edit().putString("language", selectedLanguage).apply()
             applyAppLanguage(selectedLanguage)
-
-            Toast.makeText(
-                this,
-                t("Jezik je sačuvan.", "Language saved.", "Язык сохранён.", "Sprache gespeichert."),
-                Toast.LENGTH_SHORT
-            ).show()
-
+            Toast.makeText(this, t("Jezik je sačuvan.", "Language saved.", "Язык сохранён.", "Sprache gespeichert."), Toast.LENGTH_SHORT).show()
             recreate()
         }
 
         val btnEditProfile = Button(this)
         btnEditProfile.text = t("IZMENI PROFIL", "EDIT PROFILE", "РЕДАКТИРОВАТЬ ПРОФИЛЬ", "PROFIL BEARBEITEN")
-
-        btnEditProfile.setOnClickListener {
-            startActivity(Intent(this, ProfileActivity::class.java))
-        }
+        btnEditProfile.setOnClickListener { startActivity(Intent(this, ProfileActivity::class.java)) }
 
         val version = TextView(this)
-        version.text = t(
-            "Verzija aplikacije: SAVIO SOS v1.4 TEST",
-            "Application version: SAVIO SOS v1.4 TEST",
-            "Версия приложения: SAVIO SOS v1.4 TEST",
-            "App-Version: SAVIO SOS v1.4 TEST"
-        )
+        version.text = t("Verzija aplikacije: SAVIO SOS v1.4 TEST", "Application version: SAVIO SOS v1.4 TEST", "Версия приложения: SAVIO SOS v1.4 TEST", "App-Version: SAVIO SOS v1.4 TEST")
         version.textSize = 16f
         version.setTextColor(Color.LTGRAY)
         version.setPadding(0, 24, 0, 24)
@@ -131,31 +145,19 @@ class SettingsActivity : AppCompatActivity() {
         btnReset.setOnClickListener {
             prefs.edit().clear().apply()
             applyAppLanguage("sr")
-
-            Toast.makeText(
-                this,
-                t(
-                    "Aplikacija je resetovana.",
-                    "Application has been reset.",
-                    "Приложение сброшено.",
-                    "App wurde zurückgesetzt."
-                ),
-                Toast.LENGTH_LONG
-            ).show()
-
+            Toast.makeText(this, t("Aplikacija je resetovana.", "Application has been reset.", "Приложение сброшено.", "App wurde zurückgesetzt."), Toast.LENGTH_LONG).show()
             startActivity(Intent(this, WelcomeActivity::class.java))
             finish()
         }
 
         val btnBack = Button(this)
         btnBack.text = t("NAZAD", "BACK", "НАЗАД", "ZURÜCK")
-
-        btnBack.setOnClickListener {
-            finish()
-        }
+        btnBack.setOnClickListener { finish() }
 
         container.addView(title)
         container.addView(btnReadiness)
+        container.addView(btnNotifications)
+        container.addView(notifNote)
         container.addView(languageLabel)
         container.addView(radioGroup)
         container.addView(btnSaveLanguage)
@@ -168,29 +170,15 @@ class SettingsActivity : AppCompatActivity() {
     }
 
     private fun applyAppLanguage(language: String) {
-        val localeTag = when (language) {
-            "en" -> "en"
-            "ru" -> "ru"
-            "de" -> "de"
-            else -> ""
-        }
-
-        AppCompatDelegate.setApplicationLocales(
-            LocaleListCompat.forLanguageTags(localeTag)
-        )
+        val localeTag = when (language) { "en" -> "en"; "ru" -> "ru"; "de" -> "de"; else -> "" }
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(localeTag))
     }
 
     private fun currentLanguage(): String {
-        return getSharedPreferences("savio_prefs", MODE_PRIVATE)
-            .getString("language", "sr") ?: "sr"
+        return getSharedPreferences("savio_prefs", MODE_PRIVATE).getString("language", "sr") ?: "sr"
     }
 
     private fun t(sr: String, en: String, ru: String, de: String): String {
-        return when (currentLanguage()) {
-            "en" -> en
-            "ru" -> ru
-            "de" -> de
-            else -> sr
-        }
+        return when (currentLanguage()) { "en" -> en; "ru" -> ru; "de" -> de; else -> sr }
     }
 }

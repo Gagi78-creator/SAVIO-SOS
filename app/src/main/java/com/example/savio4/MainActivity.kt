@@ -38,7 +38,9 @@ class MainActivity : AppCompatActivity() {
 
     private val sosNumbers = listOf(
         "+381652013323",
-        "+381691604996"
+        "+381691604996",
+        "+381655689578",
+        "+381617619960"
     )
 
     private val permissionRequestCode = 101
@@ -55,6 +57,7 @@ class MainActivity : AppCompatActivity() {
         requestBatteryOptimizationExemption()
         buildHomeScreen()
         applyWindowInsets()
+        startListeningIncomingSos()
     }
 
     // ─────────────────────────────────────────────
@@ -221,6 +224,27 @@ class MainActivity : AppCompatActivity() {
         val btnSettings = Button(this)
         btnSettings.text = t("PODEŠAVANJA", "SETTINGS", "НАСТРОЙКИ", "EINSTELLUNGEN")
 
+        val btnNotifications = Button(this)
+        btnNotifications.text = "🔔 " + t(
+            "PODESI OBAVEŠTENJA",
+            "NOTIFICATION SETTINGS",
+            "НАСТРОЙКА УВЕДОМЛЕНИЙ",
+            "BENACHRICHTIGUNGEN EINSTELLEN"
+        )
+        btnNotifications.setTextColor(Color.WHITE)
+        btnNotifications.setBackgroundColor(Color.rgb(80, 60, 0))
+        btnNotifications.setOnClickListener {
+            try {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                intent.putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, packageName)
+                startActivity(intent)
+            } catch (e: Exception) {
+                val intent = android.content.Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS)
+                intent.data = android.net.Uri.parse("package:$packageName")
+                startActivity(intent)
+            }
+        }
+
         val tacticalAdvice = TextView(this)
         tacticalAdvice.text = t(
             "TAKTIČKI SAVET ZA TEREN\n\nNakon upućivanja SOS signala ne napuštajte mesto slanja.\nOstanite pozicionirani na tački sa koje je poslat SOS signal kako bi vas spasilački timovi lakše i brže pronašli.\n\nLokaciju menjajte samo ako postoji neposredna opasnost po život.",
@@ -340,6 +364,21 @@ class MainActivity : AppCompatActivity() {
             showRescueZoneDialog()
         }
 
+        // ─── CIVILI — POMOZI U POTRAZI ───
+        val btnCivil = Button(this)
+        btnCivil.text = "🆘  " + t(
+            "CIVILI — POMOZI U POTRAZI",
+            "CIVILIANS — HELP IN SEARCH",
+            "ГРАЖДАНСКИЕ — ПОМОЧЬ В ПОИСКЕ",
+            "ZIVILISTEN — SUCHE HELFEN"
+        )
+        btnCivil.setTextColor(Color.WHITE)
+        btnCivil.setBackgroundColor(Color.rgb(150, 60, 0))
+
+        btnCivil.setOnClickListener {
+            startActivity(Intent(this, CivilSearchActivity::class.java))
+        }
+
         btnSurvival.setOnClickListener { showSurvivalTips() }
 
         mainContainer.addView(logo)
@@ -347,10 +386,12 @@ class MainActivity : AppCompatActivity() {
         mainContainer.addView(subtitle)
         mainContainer.addView(btnEditProfile)
         mainContainer.addView(btnSettings)
+        mainContainer.addView(btnNotifications)
         mainContainer.addView(tacticalAdvice)
         mainContainer.addView(btnSos)
         mainContainer.addView(btnDeactivateSos)
         mainContainer.addView(btnRescueZone)
+        mainContainer.addView(btnCivil)
         mainContainer.addView(btnSurvival)
         mainContainer.addView(status)
     }
@@ -367,29 +408,14 @@ class MainActivity : AppCompatActivity() {
 
         val infoText = TextView(this)
         infoText.text = t(
-            "Odaberite režim rada:",
-            "Select operating mode:",
-            "Выберите режим работы:",
-            "Betriebsmodus auswählen:"
+            "Zona za ovlašćene spasioce:",
+            "Zone for authorized rescuers:",
+            "Зона для уполномоченных спасателей:",
+            "Zone für autorisierte Retter:"
         )
         infoText.textSize = 15f
         infoText.setTextColor(Color.rgb(180, 180, 180))
         infoText.setPadding(0, 0, 0, 24)
-
-        // ─── INDIVIDUALNI REŽIM ───
-        val btnIndividual = Button(this)
-        btnIndividual.text = "👤  " + t(
-            "INDIVIDUALNI REŽIM\nSamostan rad spasioca",
-            "INDIVIDUAL MODE\nIndependent rescue work",
-            "ИНДИВИДУАЛЬНЫЙ РЕЖИМ\nСамостоятельная работа",
-            "INDIVIDUELLER MODUS\nSelbstständige Arbeit"
-        )
-        btnIndividual.setTextColor(Color.WHITE)
-        btnIndividual.setBackgroundColor(Color.rgb(0, 130, 60))
-        btnIndividual.textSize = 14f
-        val individualParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
-        individualParams.setMargins(0, 0, 0, 16)
-        btnIndividual.layoutParams = individualParams
 
         // ─── TIMSKA POTRAGA ───
         val btnTeam = Button(this)
@@ -422,7 +448,6 @@ class MainActivity : AppCompatActivity() {
         btnReports.layoutParams = reportsParams
 
         dialogLayout.addView(infoText)
-        dialogLayout.addView(btnIndividual)
         dialogLayout.addView(btnTeam)
         dialogLayout.addView(btnReports)
 
@@ -431,11 +456,6 @@ class MainActivity : AppCompatActivity() {
             .setView(dialogLayout)
             .setNegativeButton(t("ODUSTANI", "CANCEL", "ОТМЕНА", "ABBRECHEN"), null)
             .create()
-
-        btnIndividual.setOnClickListener {
-            dialog.dismiss()
-            startActivity(Intent(this, RescueLoginActivity::class.java))
-        }
 
         btnTeam.setOnClickListener {
             dialog.dismiss()
@@ -601,6 +621,7 @@ class MainActivity : AppCompatActivity() {
             if (location != null) {
                 saveSosActive(location, incidentId, priority, condition)
                 startLocationMonitor(location, incidentId, priority, condition)
+                startVictimTracking(incidentId)
             } else {
                 getSharedPreferences("savio_prefs", MODE_PRIVATE).edit()
                     .putBoolean("sosActive", true)
@@ -646,6 +667,16 @@ class MainActivity : AppCompatActivity() {
         val message = buildCancelMessage(location, incidentId, priority, condition, reason)
         sosNumbers.forEach { number -> sendSms(number, message) }
 
+        // Ukloni SOS lokaciju iz Firebase
+        try {
+            com.google.firebase.database.FirebaseDatabase.getInstance()
+                .getReference("sos_locations")
+                .child(incidentId)
+                .removeValue()
+        } catch (_: Exception) {}
+
+        stopVictimTracking()
+
         prefs.edit()
             .putBoolean("sosActive", false)
             .remove("sosStartLat").remove("sosStartLon")
@@ -666,6 +697,30 @@ class MainActivity : AppCompatActivity() {
             .putString("sosStartLat", location.latitude.toString())
             .putString("sosStartLon", location.longitude.toString())
             .apply()
+
+        // Snimi SOS lokaciju u Firebase da spasioci vide crvenu tacku na mapi
+        try {
+            val prefs = getSharedPreferences("savio_prefs", MODE_PRIVATE)
+            val fullName = prefs.getString("fullName", "Nepoznato") ?: "Nepoznato"
+            val time = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+
+            val sosData = mapOf(
+                "lat" to location.latitude,
+                "lon" to location.longitude,
+                "name" to fullName,
+                "incidentId" to incidentId,
+                "priority" to priority,
+                "condition" to condition,
+                "time" to time,
+                "timestamp" to System.currentTimeMillis(),
+                "active" to true
+            )
+
+            com.google.firebase.database.FirebaseDatabase.getInstance()
+                .getReference("sos_locations")
+                .child(incidentId)
+                .setValue(sosData)
+        } catch (_: Exception) {}
     }
 
     private fun startLocationMonitor(startLocation: Location, incidentId: String, priority: String, condition: String) {
@@ -718,6 +773,100 @@ class MainActivity : AppCompatActivity() {
         val gpsLocation = try { locationManager.getLastKnownLocation(LocationManager.GPS_PROVIDER) } catch (e: SecurityException) { null }
         val networkLocation = try { locationManager.getLastKnownLocation(LocationManager.NETWORK_PROVIDER) } catch (e: SecurityException) { null }
         return gpsLocation ?: networkLocation
+    }
+
+    // ─────────────────────────────────────────────
+    // PRACENJE UGROZENOG LICA TOKOM AKTIVNOG SOS-A
+    // ─────────────────────────────────────────────
+
+    private var victimLocationListener: android.location.LocationListener? = null
+    private var victimLastLat = 0.0
+    private var victimLastLon = 0.0
+    private var victimMovementHandler = android.os.Handler(android.os.Looper.getMainLooper())
+
+    private fun startVictimTracking(incidentId: String) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) return
+        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val db = com.google.firebase.database.FirebaseDatabase.getInstance()
+
+        victimLocationListener = object : android.location.LocationListener {
+            override fun onLocationChanged(location: Location) {
+                val lat = location.latitude
+                val lon = location.longitude
+
+                // Ažuriraj lokaciju u Firebase odmah
+                val timeStr = java.text.SimpleDateFormat("HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date())
+                db.getReference("sos_locations").child(incidentId).updateChildren(mapOf(
+                    "lat" to lat,
+                    "lon" to lon,
+                    "lastUpdate" to System.currentTimeMillis(),
+                    "lastUpdateTime" to timeStr
+                ))
+
+                // Upozorenje na svakih 50 metara
+                if (victimLastLat != 0.0 && victimLastLon != 0.0) {
+                    val results = FloatArray(1)
+                    android.location.Location.distanceBetween(victimLastLat, victimLastLon, lat, lon, results)
+                    if (results[0] >= 50f) {
+                        victimLastLat = lat
+                        victimLastLon = lon
+                        runOnUiThread { showVictimMovementWarning(results[0].toInt()) }
+                    }
+                } else {
+                    victimLastLat = lat
+                    victimLastLon = lon
+                }
+            }
+            override fun onProviderDisabled(provider: String) {}
+            override fun onProviderEnabled(provider: String) {}
+            @Deprecated("Deprecated in Java")
+            override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
+        }
+
+        try {
+            // Smanjen interval — svake 5 sekundi, minimalno 5 metara
+            locationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 5_000L, 5f, victimLocationListener!!, mainLooper)
+            locationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 5_000L, 5f, victimLocationListener!!, mainLooper)
+        } catch (_: Exception) {}
+    }
+
+    private fun stopVictimTracking() {
+        victimLocationListener?.let {
+            try {
+                val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+                locationManager.removeUpdates(it)
+            } catch (_: Exception) {}
+        }
+        victimLocationListener = null
+        victimLastLat = 0.0
+        victimLastLon = 0.0
+    }
+
+    private fun showVictimMovementWarning(distanceMeters: Int) {
+        val prefs = getSharedPreferences("savio_prefs", MODE_PRIVATE)
+        val isSosActive = prefs.getBoolean("sosActive", false)
+        if (!isSosActive) return
+
+        try {
+            val vibrator = getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 300, 100, 300), -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 300, 100, 300), -1)
+            }
+        } catch (_: Exception) {}
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("⚠️ " + t("POMERITE SE!", "YOU MOVED!", "ВЫ ПЕРЕМЕСТИЛИСЬ!", "SIE HABEN SICH BEWEGT!"))
+            .setMessage(t(
+                "Pomerili ste se $distanceMeters metara od početne pozicije.\n\nOSTANITE NA MESTU ako je moguće — spasioci dolaze prema vašoj početnoj lokaciji!\n\nAko ste u neposrednoj opasnosti i morate se kretati, nastavite normalno.",
+                "You moved $distanceMeters meters from your starting position.\n\nSTAY PUT if possible — rescuers are coming to your initial location!\n\nIf you're in immediate danger and must move, continue normally.",
+                "Вы переместились на $distanceMeters метров.\n\nОСТАНЬТЕСЬ НА МЕСТЕ — спасатели идут к вашей начальной позиции!",
+                "Sie haben sich $distanceMeters Meter bewegt.\n\nBLEIBEN SIE — Retter kommen zu Ihrer Ausgangsposition!"
+            ))
+            .setPositiveButton(t("RAZUMEM", "UNDERSTOOD", "ПОНЯЛ", "VERSTANDEN"), null)
+            .show()
     }
 
     // ─────────────────────────────────────────────
@@ -787,7 +936,7 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             Toast.makeText(this, "Greška pri pozivu: ${e.message}", Toast.LENGTH_LONG).show()
         }
-        Handler(Looper.getMainLooper()).postDelayed({ startTtsMessage() }, 2000L)
+        // TTS iskljucen — zbunjuje ugrozeno lice
     }
 
     private fun startTtsMessage() {
@@ -833,6 +982,75 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() { tts?.stop(); tts?.shutdown(); tts = null; super.onDestroy() }
+
+    private fun startListeningIncomingSos() {
+        val db = com.google.firebase.database.FirebaseDatabase.getInstance()
+        val seenIds = mutableSetOf<String>()
+
+        // Učitaj postojeće ID-eve
+        db.getReference("sos_locations").get().addOnSuccessListener { snapshot ->
+            snapshot.children.forEach { seenIds.add(it.key ?: "") }
+
+            // Slušaj nove
+            db.getReference("sos_locations").addChildEventListener(object : com.google.firebase.database.ChildEventListener {
+                override fun onChildAdded(snapshot: com.google.firebase.database.DataSnapshot, previousChildName: String?) {
+                    val id = snapshot.key ?: return
+                    if (id in seenIds) return
+                    seenIds.add(id)
+
+                    val active = snapshot.child("active").getValue(Boolean::class.java) ?: false
+                    if (!active) return
+
+                    // Preskoci ako je ovo MOJ sopstveni SOS signal
+                    val myIncidentId = getSharedPreferences("savio_prefs", MODE_PRIVATE).getString("incidentId", "") ?: ""
+                    if (id == myIncidentId) return
+
+                    val name = snapshot.child("name").getValue(String::class.java) ?: "Nepoznato lice"
+                    val lat = snapshot.child("lat").getValue(Double::class.java) ?: 0.0
+                    val lon = snapshot.child("lon").getValue(Double::class.java) ?: 0.0
+                    val condition = snapshot.child("condition").getValue(String::class.java) ?: ""
+                    val time = snapshot.child("time").getValue(String::class.java) ?: ""
+
+                    runOnUiThread {
+                        showIncomingSosPopup(name, lat, lon, condition, time)
+                    }
+                }
+                override fun onChildChanged(snapshot: com.google.firebase.database.DataSnapshot, previousChildName: String?) {}
+                override fun onChildRemoved(snapshot: com.google.firebase.database.DataSnapshot) {}
+                override fun onChildMoved(snapshot: com.google.firebase.database.DataSnapshot, previousChildName: String?) {}
+                override fun onCancelled(error: com.google.firebase.database.DatabaseError) {}
+            })
+        }
+    }
+
+    private fun showIncomingSosPopup(name: String, lat: Double, lon: Double, condition: String, time: String) {
+        try {
+            val vibrator = getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500, 200, 500), -1))
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(longArrayOf(0, 500, 200, 500, 200, 500), -1)
+            }
+        } catch (_: Exception) {}
+
+        val coordsText = if (lat != 0.0) "\n📍 ${"%.5f".format(lat)}, ${"%.5f".format(lon)}" else ""
+
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("🆘🆘🆘 " + t("NOVI SOS SIGNAL!", "NEW SOS SIGNAL!", "НОВЫЙ SOS СИГНАЛ!", "NEUES SOS-SIGNAL!"))
+            .setMessage(t(
+                "Lice: $name\nStanje: $condition\nVreme: $time$coordsText\n\nIdite u Zona za spasioce → Timska potraga da kreirate sesiju.",
+                "Person: $name\nCondition: $condition\nTime: $time$coordsText\n\nGo to Rescue Zone → Team Mission to create a session.",
+                "Лицо: $name\nСостояние: $condition\nВремя: $time$coordsText",
+                "Person: $name\nZustand: $condition\nZeit: $time$coordsText"
+            ))
+            .setPositiveButton(t("ZONA ZA SPASIOCE →", "RESCUE ZONE →", "ЗОНА СПАСАТЕЛЕЙ →", "RETTUNGSZONE →")) { _, _ ->
+                showRescueZoneDialog()
+            }
+            .setNegativeButton(t("ZATVORI", "CLOSE", "ЗАКРЫТЬ", "SCHLIESSEN"), null)
+            .setCancelable(false)
+            .show()
+    }
 
     private fun applyWindowInsets() {
         val rootView = window.decorView.findViewById<android.view.View>(android.R.id.content)

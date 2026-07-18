@@ -14,6 +14,7 @@ import android.telephony.TelephonyManager
 import android.text.InputType
 import android.view.Gravity
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import com.google.firebase.database.FirebaseDatabase
@@ -496,31 +497,18 @@ class TeamLoginActivity : AppCompatActivity() {
             loadingBar.visibility = android.view.View.VISIBLE
             btnContinue.isEnabled = false
 
-            checkNameAvailability(name) { available ->
-                runOnUiThread {
-                    loadingBar.visibility = android.view.View.GONE
-                    btnContinue.isEnabled = true
-
-                    if (available) {
-                        prefs.edit()
-                            .putString("teamRescuerName", name)
-                            .putString("teamRescuerPhone", phone)
-                            .putBoolean("teamIsObserver", false)
-                            .putInt("teamRescuerColor", Color.rgb(30, 120, 220))
-                            .apply()
-                        startActivity(Intent(this, TeamActivity::class.java))
-                        finish()
-                    } else {
-                        status.setTextColor(Color.RED)
-                        status.text = t(
-                            "Ime \"$name\" je vec zauzeto. Dodajte grad:\nnpr. \"$name Zajecar\"",
-                            "Name \"$name\" is taken. Add city:\ne.g. \"$name Belgrade\"",
-                            "Имя \"$name\" занято. Добавьте город.",
-                            "Name \"$name\" vergeben. Stadt hinzufügen."
-                        )
-                    }
-                }
+            // ─── ADMIN BYPASS ───
+            // Ako je ime "gagi" → traži admin lozinku
+            if (name.trim().lowercase() == "gagi") {
+                loadingBar.visibility = android.view.View.GONE
+                btnContinue.isEnabled = true
+                showAdminPasswordDialog(name, phone, prefs)
+                return@setOnClickListener
             }
+
+            // ─── OBIČNI SPASILAC ───
+            // Automatski obriši staru sesiju ovog spasioca, pa uđi
+            clearStaleSessionAndProceed(name, phone, prefs, status, loadingBar, btnContinue)
         }
 
         container.addView(roleLabel)
@@ -578,18 +566,158 @@ class TeamLoginActivity : AppCompatActivity() {
         return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 
-    private fun checkNameAvailability(name: String, callback: (Boolean) -> Unit) {
-        FirebaseDatabase.getInstance().getReference("active_rescuers").get()
-            .addOnSuccessListener { snapshot ->
-                var nameTaken = false
-                snapshot.children.forEach { actionSnapshot ->
-                    actionSnapshot.children.forEach { rescuerSnapshot ->
-                        val rescuerName = rescuerSnapshot.child("name").getValue(String::class.java)
-                        if (rescuerName?.equals(name, ignoreCase = true) == true) nameTaken = true
+    private fun showAdminPasswordDialog(name: String, phone: String, prefs: android.content.SharedPreferences) {
+        val passwordInput = EditText(this)
+        passwordInput.hint = t("Admin lozinka", "Admin password", "Пароль администратора", "Admin-Passwort")
+        passwordInput.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+        passwordInput.setTextColor(android.graphics.Color.WHITE)
+        passwordInput.setPadding(32, 16, 32, 16)
+
+        AlertDialog.Builder(this)
+            .setTitle("🔑 " + t("ADMIN PRISTUP", "ADMIN ACCESS", "ДОСТУП АДМИНИСТРАТОРА", "ADMIN-ZUGANG"))
+            .setMessage(t(
+                "Korisničko ime \"Gagi\" je rezervisano za administratora.\n\nUnesite admin lozinku za pristup:",
+                "Username \"Gagi\" is reserved for the administrator.\n\nEnter admin password:",
+                "Имя \"Gagi\" зарезервировано для администратора.\n\nВведите пароль:",
+                "Benutzername \"Gagi\" ist für den Administrator reserviert.\n\nAdmin-Passwort eingeben:"
+            ))
+            .setView(passwordInput)
+            .setPositiveButton(t("POTVRDI", "CONFIRM", "ПОДТВЕРДИТЬ", "BESTÄTIGEN")) { _, _ ->
+                val enteredPassword = passwordInput.text.toString().trim()
+                if (enteredPassword == "kobra.019") {
+                    // Admin lozinka tačna — obriši staru sesiju i uđi
+                    clearAdminSessionAndProceed(name, phone, prefs)
+                } else {
+                    Toast.makeText(this, t(
+                        "⛔ Pogrešna admin lozinka.",
+                        "⛔ Wrong admin password.",
+                        "⛔ Неверный пароль администратора.",
+                        "⛔ Falsches Admin-Passwort."
+                    ), Toast.LENGTH_LONG).show()
+                }
+            }
+            .setNegativeButton(t("ODUSTANI", "CANCEL", "ОТМЕНА", "ABBRECHEN"), null)
+            .show()
+    }
+
+    private fun clearAdminSessionAndProceed(name: String, phone: String, prefs: android.content.SharedPreferences) {
+        val db = FirebaseDatabase.getInstance()
+        val safeName = name.replace(".", "_").replace("#", "_").replace("$", "_").replace("[", "_").replace("]", "_")
+
+        // Obriši sve stare sesije sa imenom "Gagi" iz svih aktivnih potraga
+        db.getReference("active_rescuers").get().addOnSuccessListener { snapshot ->
+            snapshot.children.forEach { missionSnapshot ->
+                missionSnapshot.children.forEach { rescuerSnapshot ->
+                    val rescuerName = rescuerSnapshot.child("name").getValue(String::class.java)
+                    if (rescuerName?.equals(name, ignoreCase = true) == true) {
+                        rescuerSnapshot.ref.removeValue()
                     }
                 }
-                callback(!nameTaken)
-            }.addOnFailureListener { callback(true) }
+            }
+
+            // Sačuvaj admin prefs i nastavi
+            prefs.edit()
+                .putString("teamRescuerName", name)
+                .putString("teamRescuerPhone", phone)
+                .putBoolean("teamIsObserver", false)
+                .putInt("teamRescuerColor", Color.rgb(30, 120, 220))
+                .apply()
+
+            startActivity(Intent(this, TeamActivity::class.java))
+            finish()
+        }.addOnFailureListener {
+            // Čak i ako Firebase ne odgovori — pusti admina unutra
+            prefs.edit()
+                .putString("teamRescuerName", name)
+                .putString("teamRescuerPhone", phone)
+                .putBoolean("teamIsObserver", false)
+                .putInt("teamRescuerColor", Color.rgb(30, 120, 220))
+                .apply()
+            startActivity(Intent(this, TeamActivity::class.java))
+            finish()
+        }
+    }
+
+    private fun clearStaleSessionAndProceed(
+        name: String,
+        phone: String,
+        prefs: android.content.SharedPreferences,
+        status: TextView,
+        loadingBar: android.widget.ProgressBar,
+        btnContinue: android.widget.Button
+    ) {
+        val db = FirebaseDatabase.getInstance()
+
+        // Pronađi sve aktivne sesije sa ovim imenom
+        db.getReference("active_rescuers").get().addOnSuccessListener { snapshot ->
+            val staleRefs = mutableListOf<com.google.firebase.database.DatabaseReference>()
+            var activeSessionExists = false
+
+            snapshot.children.forEach { missionSnapshot ->
+                // Provjeri da li je ta misija još aktivna
+                db.getReference("missions").child(missionSnapshot.key ?: "").child("active")
+                    .get().addOnSuccessListener { activeSnapshot ->
+                        val missionActive = activeSnapshot.getValue(Boolean::class.java) ?: false
+
+                        missionSnapshot.children.forEach { rescuerSnapshot ->
+                            val rescuerName = rescuerSnapshot.child("name").getValue(String::class.java)
+                            if (rescuerName?.equals(name, ignoreCase = true) == true) {
+                                if (missionActive) {
+                                    activeSessionExists = true
+                                } else {
+                                    staleRefs.add(rescuerSnapshot.ref)
+                                }
+                            }
+                        }
+                    }
+            }
+
+            // Sačekaj malo da se sve provjere završe
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                runOnUiThread {
+                    loadingBar.visibility = android.view.View.GONE
+                    btnContinue.isEnabled = true
+
+                    if (activeSessionExists) {
+                        // Stvarno aktivan u živoj potrazi — blokiraj
+                        status.setTextColor(android.graphics.Color.RED)
+                        status.text = t(
+                            "Ime \"$name\" je trenutno aktivno u živoj potrazi. Koristite drugačije ime.",
+                            "Name \"$name\" is currently active in a live mission. Use a different name.",
+                            "Имя \"$name\" активно в живой операции. Используйте другое имя.",
+                            "Name \"$name\" ist in einem aktiven Einsatz. Anderen Namen verwenden."
+                        )
+                    } else {
+                        // Stale sesija ili slobodno — obriši stale i uđi
+                        staleRefs.forEach { it.removeValue() }
+
+                        prefs.edit()
+                            .putString("teamRescuerName", name)
+                            .putString("teamRescuerPhone", phone)
+                            .putBoolean("teamIsObserver", false)
+                            .putInt("teamRescuerColor", android.graphics.Color.rgb(30, 120, 220))
+                            .apply()
+                        startActivity(Intent(this, TeamActivity::class.java))
+                        finish()
+                    }
+                }
+            }, 1500L)
+
+        }.addOnFailureListener {
+            runOnUiThread {
+                loadingBar.visibility = android.view.View.GONE
+                btnContinue.isEnabled = true
+                // Firebase greška — pusti unutra kao fallback
+                prefs.edit()
+                    .putString("teamRescuerName", name)
+                    .putString("teamRescuerPhone", phone)
+                    .putBoolean("teamIsObserver", false)
+                    .putInt("teamRescuerColor", android.graphics.Color.rgb(30, 120, 220))
+                    .apply()
+                startActivity(Intent(this, TeamActivity::class.java))
+                finish()
+            }
+        }
     }
 
     private fun currentLanguage(): String {

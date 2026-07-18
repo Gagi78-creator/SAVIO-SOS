@@ -24,6 +24,7 @@ class WelcomeActivity : AppCompatActivity() {
 
         val legalAccepted = prefs.getBoolean("legalAccepted", false)
         val profileSaved = prefs.getBoolean("profileSaved", false)
+        val onboardingDone = prefs.getBoolean("onboardingDone", false)
 
         if (legalAccepted && profileSaved) {
             startActivity(Intent(this, MainActivity::class.java))
@@ -31,7 +32,13 @@ class WelcomeActivity : AppCompatActivity() {
             return
         }
 
-        if (legalAccepted && !profileSaved) {
+        if (legalAccepted && !onboardingDone) {
+            startActivity(Intent(this, OnboardingActivity::class.java))
+            finish()
+            return
+        }
+
+        if (legalAccepted && onboardingDone && !profileSaved) {
             startActivity(Intent(this, ProfileActivity::class.java))
             finish()
             return
@@ -92,7 +99,6 @@ class WelcomeActivity : AppCompatActivity() {
         val btnContinue = Button(this)
         btnContinue.isEnabled = false
 
-        // iOS napomena — prikazuje se na odabranom jeziku
         val iosNote = TextView(this)
         iosNote.setPadding(24, 16, 24, 16)
         iosNote.textSize = 14f
@@ -115,7 +121,6 @@ class WelcomeActivity : AppCompatActivity() {
             when (language) {
                 "en" -> {
                     languageTitle.text = "\nChoose language"
-
                     warning.text = """
                         LEGAL WARNING
 
@@ -128,15 +133,12 @@ class WelcomeActivity : AppCompatActivity() {
                         ⚠️ IMPORTANT LIMITATION
                         SAVIO SOS works only if the phone has a GSM signal. In areas without GSM coverage, the application CANNOT guarantee delivery of the SOS signal. For use in completely isolated areas, we recommend a satellite device (Garmin inReach, SPOT X).
                     """.trimIndent()
-
                     checkBox.text = "I have read and accept the warning"
                     btnContinue.text = "CONTINUE"
                     iosNote.text = "📱 AVAILABILITY\nSAVIO SOS is currently available for Android devices only. An iOS version is not available."
                 }
-
                 "ru" -> {
                     languageTitle.text = "\nВыберите язык"
-
                     warning.text = """
                         ПРАВОВОЕ ПРЕДУПРЕЖДЕНИЕ
 
@@ -147,38 +149,32 @@ class WelcomeActivity : AppCompatActivity() {
                         Пользователь подтверждает, что режим SOS будет использоваться только при реальной опасности или при обоснованной необходимости срочного уведомления.
 
                         ⚠️ ВАЖНОЕ ОГРАНИЧЕНИЕ
-                        SAVIO SOS работает только при наличии GSM-сигнала. В районах без GSM-покрытия приложение НЕ МОЖЕТ гарантировать доставку SOS-сигнала. Для работы в полностью изолированных районах рекомендуем спутниковые устройства (Garmin inReach, SPOT X).
+                        SAVIO SOS работает только при наличии GSM-сигнала. В районах без GSM-покрытия приложение НЕ МОЖЕТ гарантировать доставку SOS-сигнала.
                     """.trimIndent()
-
                     checkBox.text = "Я прочитал(а) и принимаю предупреждение"
                     btnContinue.text = "ПРОДОЛЖИТЬ"
-                    iosNote.text = "📱 ДОСТУПНОСТЬ\nSAVIO SOS в настоящее время доступен только для устройств Android. Версия для iOS недоступна."
+                    iosNote.text = "📱 ДОСТУПНОСТЬ\nSAVIO SOS доступен только для Android. Версия для iOS недоступна."
                 }
-
                 "de" -> {
                     languageTitle.text = "\nSprache auswählen"
-
                     warning.text = """
                         RECHTLICHER HINWEIS
 
                         Die Aktivierung des SOS-Modus in dieser Anwendung startet eine Notfallbenachrichtigung der vordefinierten Kontakte und übermittelt Ihre geografischen Koordinaten.
 
-                        Eine vorsätzliche falsche oder unbegründete Aktivierung des SOS-Modus kann zu einem unnötigen Einsatz von Polizei, Feuerwehr, Rettungsdiensten oder anderen Notfallressourcen führen und rechtliche Folgen nach geltendem Recht haben.
+                        Eine vorsätzliche falsche oder unbegründete Aktivierung des SOS-Modus kann zu einem unnötigen Einsatz von Polizei, Feuerwehr, Rettungsdiensten führen und rechtliche Folgen haben.
 
-                        Der Benutzer bestätigt, dass der SOS-Modus nur bei tatsächlicher Gefahr oder bei einem berechtigten Bedarf an einer dringenden Benachrichtigung verwendet wird.
+                        Der Benutzer bestätigt, dass der SOS-Modus nur bei tatsächlicher Gefahr verwendet wird.
 
                         ⚠️ WICHTIGE EINSCHRÄNKUNG
-                        SAVIO SOS funktioniert nur, wenn das Telefon ein GSM-Signal hat. In Gebieten ohne GSM-Abdeckung KANN die Anwendung die Zustellung des SOS-Signals NICHT garantieren. Für den Einsatz in völlig abgelegenen Gebieten empfehlen wir ein Satellitengerät (Garmin inReach, SPOT X).
+                        SAVIO SOS funktioniert nur, wenn das Telefon ein GSM-Signal hat.
                     """.trimIndent()
-
                     checkBox.text = "Ich habe den Hinweis gelesen und akzeptiere ihn"
                     btnContinue.text = "FORTFAHREN"
-                    iosNote.text = "📱 VERFÜGBARKEIT\nSAVIO SOS ist derzeit nur für Android-Geräte verfügbar. Eine iOS-Version ist nicht verfügbar."
+                    iosNote.text = "📱 VERFÜGBARKEIT\nSAVIO SOS ist nur für Android verfügbar. Eine iOS-Version ist nicht verfügbar."
                 }
-
                 else -> {
                     languageTitle.text = "\nIzaberite jezik"
-
                     warning.text = """
                         PRAVNO UPOZORENJE
 
@@ -191,7 +187,6 @@ class WelcomeActivity : AppCompatActivity() {
                         ⚠️ VAŽNO OGRANIČENJE
                         SAVIO SOS funkcioniše samo ako telefon ima GSM signal. Na terenima bez GSM pokrivenosti aplikacija NE MOŽE garantovati isporuku SOS signala. Za rad na potpuno izolovanim terenima preporučujemo satelitski uređaj (Garmin inReach, SPOT X).
                     """.trimIndent()
-
                     checkBox.text = "Pročitao/la sam i prihvatam upozorenje"
                     btnContinue.text = "NASTAVI"
                     iosNote.text = "📱 DOSTUPNOST APLIKACIJE\nSAVIO SOS je trenutno dostupan isključivo za Android uređaje. iOS verzija nije dostupna."
@@ -211,7 +206,6 @@ class WelcomeActivity : AppCompatActivity() {
                 sr.id -> "sr"
                 else -> "sr"
             }
-
             checkBox.isChecked = false
             btnContinue.isEnabled = false
             updateLanguageTexts(language)
@@ -225,7 +219,8 @@ class WelcomeActivity : AppCompatActivity() {
 
             applyAppLanguage(selectedLanguage)
 
-            startActivity(Intent(this, ProfileActivity::class.java))
+            // Idi na Onboarding, ne direktno na Profile
+            startActivity(Intent(this, OnboardingActivity::class.java))
             finish()
         }
 
@@ -257,9 +252,6 @@ class WelcomeActivity : AppCompatActivity() {
             "de" -> "de"
             else -> ""
         }
-
-        AppCompatDelegate.setApplicationLocales(
-            LocaleListCompat.forLanguageTags(localeTag)
-        )
+        AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags(localeTag))
     }
 }
