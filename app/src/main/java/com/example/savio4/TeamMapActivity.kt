@@ -104,7 +104,7 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
         super.onCreate(savedInstanceState)
 
         Configuration.getInstance().load(applicationContext, getSharedPreferences("osmdroid", MODE_PRIVATE))
-        Configuration.getInstance().userAgentValue = packageName
+        Configuration.getInstance().userAgentValue = SavioSOSApp.OSM_USER_AGENT
 
         val prefs = getSharedPreferences("savio_prefs", MODE_PRIVATE)
         missionCode = prefs.getString("teamMissionCode", "") ?: ""
@@ -187,7 +187,16 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
 
         // ─── OSM MAPA ───
         mapView = MapView(this)
-        mapView.setTileSource(TileSourceFactory.MAPNIK)
+        mapView.setTileSource(
+            org.osmdroid.tileprovider.tilesource.XYTileSource(
+                "OpenTopoMap", 0, 17, 256, ".png",
+                arrayOf(
+                    "https://a.tile.opentopomap.org/",
+                    "https://b.tile.opentopomap.org/",
+                    "https://c.tile.opentopomap.org/"
+                )
+            )
+        )
         mapView.setMultiTouchControls(true)
         mapView.controller.setZoom(7.0)
         mapView.controller.setCenter(GeoPoint(44.0, 21.0))
@@ -360,6 +369,7 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
         loadMySector()
         startListeningCivilians()
         loadSosLocation() // Automatski učitaj SOS koordinate
+        if (isCoordinator) startListeningNewSos()
     }
 
     // ─────────────────────────────────────────────
@@ -2162,6 +2172,7 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
         super.onDestroy()
         handler.removeCallbacksAndMessages(null)
         rescuersListener?.let { db.getReference("active_rescuers").child(missionCode).removeEventListener(it) }
+        newSosListener?.let { db.getReference("sos_locations").removeEventListener(it) }
         chatListener?.let { db.getReference("mission_chat").child(missionCode).removeEventListener(it) }
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         locationManager.removeUpdates(this)
@@ -2183,6 +2194,64 @@ class TeamMapActivity : AppCompatActivity(), LocationListener {
 
     private fun currentLanguage(): String {
         return getSharedPreferences("savio_prefs", MODE_PRIVATE).getString("language", "sr") ?: "sr"
+    }
+
+
+    // ─── OBAVEŠTENJE O NOVOM SOS SIGNALU (samo za koordinatora) ───────────
+    private var knownSosIds = mutableSetOf<String>()
+    private var newSosListener: com.google.firebase.database.ChildEventListener? = null
+
+    private fun startListeningNewSos() {
+        db.getReference("sos_locations").get().addOnSuccessListener { snapshot ->
+            snapshot.children.forEach { knownSosIds.add(it.key ?: "") }
+
+            newSosListener = object : com.google.firebase.database.ChildEventListener {
+                override fun onChildAdded(snapshot: com.google.firebase.database.DataSnapshot, prev: String?) {
+                    val id = snapshot.key ?: return
+                    if (id in knownSosIds) return
+                    knownSosIds.add(id)
+
+                    val active = snapshot.child("active").getValue(Boolean::class.java) ?: false
+                    if (!active) return
+
+                    val name = snapshot.child("name").getValue(String::class.java)
+                        ?: t("Nepoznato", "Unknown", "Неизвестно", "Unbekannt")
+                    val lat = snapshot.child("lat").getValue(Double::class.java) ?: 0.0
+                    val lon = snapshot.child("lon").getValue(Double::class.java) ?: 0.0
+                    val time = snapshot.child("time").getValue(String::class.java) ?: ""
+                    val condition = snapshot.child("condition").getValue(String::class.java) ?: ""
+
+                    runOnUiThread {
+                        try {
+                            val vibrator = getSystemService(android.content.Context.VIBRATOR_SERVICE) as android.os.Vibrator
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                                vibrator.vibrate(android.os.VibrationEffect.createWaveform(longArrayOf(0, 500, 200, 500, 200, 500), -1))
+                            } else {
+                                @Suppress("DEPRECATION")
+                                vibrator.vibrate(longArrayOf(0, 500, 200, 500, 200, 500), -1)
+                            }
+                        } catch (_: Exception) {}
+
+                        android.app.AlertDialog.Builder(this@TeamMapActivity)
+                            .setTitle("🆘 " + t("NOVI SOS SIGNAL!", "NEW SOS SIGNAL!", "НОВЫЙ СОС СИГНАЛ!", "NEUES SOS SIGNAL!"))
+                            .setMessage(t(
+                                "Ime: $name\nVreme: $time\nStanje: $condition\n\nKoordinate: ${"%.5f".format(lat)}, ${"%.5f".format(lon)}\n\nOsoba je ucrtana na mapi!",
+                                "Name: $name\nTime: $time\nCondition: $condition\n\nCoordinates: ${"%.5f".format(lat)}, ${"%.5f".format(lon)}\n\nPerson marked on map!",
+                                "Имя: $name\nВремя: $time\nСостояние: $condition\n\nКоординаты: ${"%.5f".format(lat)}, ${"%.5f".format(lon)}\n\nОтмечено на карте!",
+                                "Name: $name\nZeit: $time\nZustand: $condition\n\nKoordinaten: ${"%.5f".format(lat)}, ${"%.5f".format(lon)}\n\nPerson auf Karte markiert!"
+                            ))
+                            .setPositiveButton(t("RAZUMEM", "OK", "ПОНЯЛ", "VERSTANDEN")) { d, _ -> d.dismiss() }
+                            .setCancelable(false)
+                            .show()
+                    }
+                }
+                override fun onChildChanged(s: com.google.firebase.database.DataSnapshot, p: String?) {}
+                override fun onChildRemoved(s: com.google.firebase.database.DataSnapshot) {}
+                override fun onChildMoved(s: com.google.firebase.database.DataSnapshot, p: String?) {}
+                override fun onCancelled(e: com.google.firebase.database.DatabaseError) {}
+            }
+            db.getReference("sos_locations").addChildEventListener(newSosListener!!)
+        }
     }
 
     private fun t(sr: String, en: String, ru: String, de: String): String {

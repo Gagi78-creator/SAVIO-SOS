@@ -38,8 +38,8 @@ class LocationMonitorService : Service(), LocationListener {
     private var sosNumbers: ArrayList<String> = arrayListOf()
     private var lastKnownLocation: Location? = null
 
-    // IZMENA #1: Čuvamo poslednju lokaciju od koje merimo pomeranje
-    // Nakon potvrde upozorenja, ovo se ažurira na novu poziciju
+    // IZMENA #1: ÄŒuvamo poslednju lokaciju od koje merimo pomeranje
+    // Nakon potvrde upozorenja, ovo se aÅ¾urira na novu poziciju
     private var lastWarningLat: Double = 0.0
     private var lastWarningLon: Double = 0.0
 
@@ -51,7 +51,7 @@ class LocationMonitorService : Service(), LocationListener {
     private var toneGenerator: ToneGenerator? = null
     private var alarmActive = false
 
-    // Pracenje battery upozorenja — svako se salje samo jednom
+    // Pracenje battery upozorenja â€” svako se salje samo jednom
     private var batteryWarning15Sent = false
     private var batteryWarning10Sent = false
 
@@ -115,7 +115,7 @@ class LocationMonitorService : Service(), LocationListener {
             }
             // Provjeri bateriju i upozori ako je nivo kritican
             checkBatteryAndWarn()
-            // Adaptivni interval — zavisi od nivoa baterije
+            // Adaptivni interval â€” zavisi od nivoa baterije
             handler.postDelayed(this, getPeriodicIntervalMs())
         }
     }
@@ -158,7 +158,12 @@ class LocationMonitorService : Service(), LocationListener {
             lastWarningLon = incomingLon
         }
 
-        startForeground(notificationId, buildNotification())
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+            startForeground(notificationId, buildNotification(),
+                android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION)
+        } else {
+            startForeground(notificationId, buildNotification())
+        }
         startLocationUpdates()
         startPeriodicLocationSending()
 
@@ -180,7 +185,7 @@ class LocationMonitorService : Service(), LocationListener {
         NotificationCompat.Builder(this, channelId)
             .setSmallIcon(android.R.drawable.ic_menu_mylocation)
             .setContentTitle("SAVIO SOS aktivan")
-            .setContentText("Nadzor lokacije je aktivan. Lokacija se šalje na svakih 5 minuta.")
+            .setContentText("Nadzor lokacije je aktivan. Lokacija se Å¡alje na svakih 5 minuta.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setOngoing(true)
             .build()
@@ -199,7 +204,7 @@ class LocationMonitorService : Service(), LocationListener {
                 "SAVIO SOS hitno upozorenje",
                 NotificationManager.IMPORTANCE_HIGH
             )
-            alertChannel.description = "Hitno upozorenje kada se korisnik pomeri od početne SOS lokacije."
+            alertChannel.description = "Hitno upozorenje kada se korisnik pomeri od poÄetne SOS lokacije."
             alertChannel.enableVibration(true)
             alertChannel.lockscreenVisibility = android.app.Notification.VISIBILITY_PUBLIC
 
@@ -242,14 +247,14 @@ class LocationMonitorService : Service(), LocationListener {
         handler.postDelayed(periodicRunnable, getPeriodicIntervalMs())
     }
 
-    // Adaptivni interval slanja — štedi bateriju kada je nivo nizak
+    // Adaptivni interval slanja â€” Å¡tedi bateriju kada je nivo nizak
     private fun getPeriodicIntervalMs(): Long {
         val battery = getBatteryPercent()
         return when {
-            battery < 0      -> 5 * 60 * 1000L   // Nepoznat nivo → 5 min
-            battery > 50     -> 5 * 60 * 1000L   // Iznad 50%     → 5 min
-            battery > 20     -> 10 * 60 * 1000L  // 21% - 50%     → 10 min
-            else             -> 15 * 60 * 1000L  // 20% i manje   → 15 min
+            battery < 0      -> 5 * 60 * 1000L   // Nepoznat nivo â†’ 5 min
+            battery > 50     -> 5 * 60 * 1000L   // Iznad 50%     â†’ 5 min
+            battery > 20     -> 10 * 60 * 1000L  // 21% - 50%     â†’ 10 min
+            else             -> 15 * 60 * 1000L  // 20% i manje   â†’ 15 min
         }
     }
 
@@ -262,7 +267,7 @@ class LocationMonitorService : Service(), LocationListener {
             return
         }
 
-        // IZMENA #1: Merimo od poslednje potvrđene lokacije, ne od početne
+        // IZMENA #1: Merimo od poslednje potvrÄ‘ene lokacije, ne od poÄetne
         val referenceLocation = Location("reference").apply {
             latitude = startLat
             longitude = startLon
@@ -387,11 +392,11 @@ class LocationMonitorService : Service(), LocationListener {
         val incidentId = prefs.getString("incidentId", "Nepoznat") ?: "Nepoznat"
 
         val message = """
-            AŽURIRANJE SOS POZICIJE!
+            AÅ½URIRANJE SOS POZICIJE!
 
             Incident ID: $incidentId
 
-            Korisnik je promenio lokaciju za približno ${distance.toInt()} metara.
+            Korisnik je promenio lokaciju za pribliÅ¾no ${distance.toInt()} metara.
             Baterija: $battery%
 
             NOVA LOKACIJA:
@@ -401,7 +406,7 @@ class LocationMonitorService : Service(), LocationListener {
             $lat, $lon
 
             Napomena:
-            Korisnik treba da ostane na novoj lokaciji osim ako je životno ugrožen.
+            Korisnik treba da ostane na novoj lokaciji osim ako je Å¾ivotno ugroÅ¾en.
         """.trimIndent()
 
         sosNumbers.forEach { number ->
@@ -415,7 +420,7 @@ class LocationMonitorService : Service(), LocationListener {
         val time = SimpleDateFormat("dd.MM.yyyy. HH:mm:ss", Locale.getDefault()).format(Date())
         val battery = getBatteryPercent()
 
-        // IZMENA #2: Dodajemo Incident ID u periodični SMS
+        // IZMENA #2: Dodajemo Incident ID u periodiÄni SMS
         val prefs = getSharedPreferences("savio_prefs", Context.MODE_PRIVATE)
         val incidentId = prefs.getString("incidentId", "Nepoznat") ?: "Nepoznat"
 
@@ -423,7 +428,7 @@ class LocationMonitorService : Service(), LocationListener {
             STATUS SOS LOKACIJE
 
             Incident ID: $incidentId
-            SOS režim je i dalje aktivan.
+            SOS reÅ¾im je i dalje aktivan.
             Vreme slanja: $time
             Baterija: $battery%
 
@@ -464,12 +469,12 @@ class LocationMonitorService : Service(), LocationListener {
             batteryWarning15Sent = true
 
             val message = """
-                UPOZORENJE — SLABA BATERIJA
+                UPOZORENJE â€” SLABA BATERIJA
 
                 Incident ID: $incidentId
 
-                Baterija uređaja je na $battery%.
-                Uređaj se može uskoro isključiti.
+                Baterija ureÄ‘aja je na $battery%.
+                UreÄ‘aj se moÅ¾e uskoro iskljuÄiti.
 
                 $locationText
 
@@ -480,18 +485,18 @@ class LocationMonitorService : Service(), LocationListener {
             playBatteryWarningTone()
         }
 
-        // Kritično upozorenje na 10%
+        // KritiÄno upozorenje na 10%
         if (battery in 1..10 && !batteryWarning10Sent) {
             batteryWarning10Sent = true
 
             val message = """
-                KRITICNO — BATERIJA ISPOD 10%!
+                KRITICNO â€” BATERIJA ISPOD 10%!
 
                 Incident ID: $incidentId
 
-                Baterija uređaja je na $battery%.
-                Uređaj ce se uskoro ugasiti.
-                Ovo je možda poslednja poruka sa lokacijom.
+                Baterija ureÄ‘aja je na $battery%.
+                UreÄ‘aj ce se uskoro ugasiti.
+                Ovo je moÅ¾da poslednja poruka sa lokacijom.
 
                 $locationText
 
@@ -510,7 +515,7 @@ class LocationMonitorService : Service(), LocationListener {
             audioManager.setStreamVolume(AudioManager.STREAM_ALARM, maxVolume, 0)
 
             val tone = ToneGenerator(AudioManager.STREAM_ALARM, 100)
-            // Tri kratka signala — univerzalni signal upozorenja
+            // Tri kratka signala â€” univerzalni signal upozorenja
             tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 300)
             handler.postDelayed({ tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 300) }, 500L)
             handler.postDelayed({ tone.startTone(ToneGenerator.TONE_CDMA_ALERT_CALL_GUARD, 300) }, 1000L)

@@ -31,6 +31,10 @@ android {
     }
 }
 
+configurations.all {
+    exclude(group = "com.j256.ormlite", module = "ormlite-core")
+}
+
 dependencies {
     implementation(libs.androidx.activity.ktx)
     implementation(libs.androidx.appcompat)
@@ -38,14 +42,15 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.material)
 
+    // OpenStreetMap biblioteke
+    implementation("org.osmdroid:osmdroid-android:6.1.18")
+    implementation("org.osmdroid:osmdroid-mapsforge:6.1.18")
+    implementation("org.osmdroid:osmdroid-geopackage:6.1.18")
+
     // Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
     implementation("com.google.firebase:firebase-database-ktx")
     implementation("com.google.firebase:firebase-auth-ktx")
-
-    // Google Maps
-    implementation("com.google.android.gms:play-services-maps:18.2.0")
-    implementation("org.osmdroid:osmdroid-android:6.1.18")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.espresso.core)

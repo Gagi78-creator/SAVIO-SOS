@@ -66,7 +66,7 @@ class CivilSearchActivity : AppCompatActivity(), LocationListener {
         super.onCreate(savedInstanceState)
 
         Configuration.getInstance().load(applicationContext, getSharedPreferences("osmdroid", MODE_PRIVATE))
-        Configuration.getInstance().userAgentValue = packageName
+        Configuration.getInstance().userAgentValue = SavioSOSApp.OSM_USER_AGENT
 
         db = FirebaseDatabase.getInstance()
 
@@ -113,7 +113,16 @@ class CivilSearchActivity : AppCompatActivity(), LocationListener {
 
         // ─── MAPA ───
         mapView = MapView(this)
-        mapView.setTileSource(TileSourceFactory.MAPNIK)
+        mapView.setTileSource(
+            org.osmdroid.tileprovider.tilesource.XYTileSource(
+                "OpenTopoMap", 0, 17, 256, ".png",
+                arrayOf(
+                    "https://a.tile.opentopomap.org/",
+                    "https://b.tile.opentopomap.org/",
+                    "https://c.tile.opentopomap.org/"
+                )
+            )
+        )
         mapView.setMultiTouchControls(true)
         mapView.controller.setZoom(7.0)
         mapView.controller.setCenter(GeoPoint(44.0, 21.0))

@@ -637,10 +637,13 @@ class MainActivity : AppCompatActivity() {
                 )
             }
 
-            callPrimaryNumber()
             status.text = buildSosActivatedStatusText(incidentId, priority, condition)
             mainContainer.removeAllViews()
             buildHomeScreen()
+            // Poziv posle buildHomeScreen — foreground servis mora biti aktivan pre dialera
+            android.os.Handler(android.os.Looper.getMainLooper()).postDelayed({
+                callPrimaryNumber()
+            }, 1500)
         }
     }
 
